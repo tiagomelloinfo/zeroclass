@@ -33,7 +33,8 @@ Todos os gráficos são gerados por código, com paleta fixa e contorno de 1px, 
 | Script | Gera |
 |---|---|
 | `gerar_assets.py` | tileset de terreno (32×32), props, vila, interiores, paleta |
-| `gerar_personagens128.py` | heróis, NPCs e slimes em 128×128 (usados no jogo) |
+| `gerar_personagens_anime.py` | heróis e NPCs em 128×128 no estilo JRPG/anime, mais os slimes (usados no jogo) |
+| `gerar_personagens128.py` | versão anterior dos personagens 128×128; fornece o acabamento e os slimes |
 | `gerar_personagens64.py` | versões 64×64 dos heróis e slimes (não usadas no jogo) |
 | `montar_jogo.py` | roda os geradores e embute as imagens em `index.html` |
 

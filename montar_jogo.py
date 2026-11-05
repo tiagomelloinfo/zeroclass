@@ -6,7 +6,7 @@ import base64, os, subprocess, sys
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 subprocess.run([sys.executable, os.path.join(AQUI, "gerar_assets.py")], check=True)
-subprocess.run([sys.executable, os.path.join(AQUI, "gerar_personagens128.py")], check=True)
+subprocess.run([sys.executable, os.path.join(AQUI, "gerar_personagens_anime.py")], check=True)
 
 def data_uri(nome):
     with open(os.path.join(AQUI, "rpg_assets_amostra", nome), "rb") as f:
