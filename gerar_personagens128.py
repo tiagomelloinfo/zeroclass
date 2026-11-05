@@ -15,12 +15,82 @@ BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
 clamp = lambda v, a=0.0, b=1.0: max(a, min(b, v))
 
 
+# ---------------------------------------------------------------- acabamento
+import re
+_FAM_ALIAS = {"wh": "s"}
+DEEP = {"sk": "skd", "r": "rd", "t": "td", "g": "gd", "h": "hd", "d": "hd", "k": "ol", "p": "pd", "au": "aud",
+        "s": "sd", "v": "vd", "m": "md", "o": "od", "w": "wd"}
+RAMPS = {
+    "sk": ["sk2", "sk", "sk0", "skd"], "r": ["r2", "r1", "r0", "rd"], "t": ["t2", "t1", "t0", "td"],
+    "g": ["g3", "g2", "g1", "g0", "gd"], "h": ["h2", "h1", "h0", "hd"], "d": ["d3", "d2", "d1", "d0", "hd"],
+    "k": ["k2", "k1", "k0", "ol"], "p": ["p1", "p0", "pd"], "au": ["au2", "au", "au0", "aud"],
+    "s": ["wh", "s3", "s2", "s1", "s0", "sd"], "v": ["v2", "v1", "v0", "vd"], "m": ["m2", "m1", "m0", "md"],
+    "o": ["o2", "o1", "o0", "od"], "w": ["w3", "w2", "w1", "w0", "wd"],
+}
+
+
+def fam(col):
+    if col is None: return None
+    f = re.match(r"[a-z]+", col).group(0)
+    if f == "skd": return "sk"
+    if f in ("rd", "td", "gd", "hd", "pd", "aud", "sd", "vd", "md", "od", "wd"): f = f[:-1]
+    return _FAM_ALIAS.get(f, f)
+
+
+def darker(col, steps=1):
+    r = RAMPS.get(fam(col))
+    if not r or col not in r: return col
+    return r[min(len(r) - 1, r.index(col) + steps)]
+
+
 def tone(cols, v, x, y):
-    """cols do mais claro ao mais escuro; transição com dithering estreito."""
+    """Sombreado em faixas sólidas (cel shading), sem pontilhado; a faixa mais escura usa a sombra profunda do material."""
+    if v >= 0.95:
+        return DEEP.get(fam(cols[-1]), cols[-1])
     n = len(cols)
-    if n == 1: return cols[0]
-    t = clamp(v) * (n - 1); i = min(int(t), n - 2); f = clamp((t - i - 0.5) * 2.5 + 0.5)
-    return cols[i + 1] if f > (BAYER[y % 4][x % 4] + .5) / 16 else cols[i]
+    return cols[min(n - 1, int(clamp(v) / 0.95 * n))]
+
+
+PROTECT = {"ol", "wh"}
+
+
+def finish(c):
+    """Acabamento: limpa pixels soltos, sombra de contato, contorno colorido (sel-out) e suavização de cantos."""
+    P = c.p
+    # 1) pixels soltos dentro do mesmo material (exceto pele e detalhes)
+    fix = {}
+    for (x, y), col in P.items():
+        if col in PROTECT or fam(col) == "sk": continue
+        ns = [P.get((x + 1, y)), P.get((x - 1, y)), P.get((x, y + 1)), P.get((x, y - 1))]
+        if None not in ns and len(set(ns)) == 1 and ns[0] != col and fam(ns[0]) == fam(col):
+            fix[(x, y)] = ns[0]
+    P.update(fix)
+    # 2) sombra de contato: logo abaixo de outra peça o material escurece um tom
+    shade = {}
+    for (x, y), col in P.items():
+        above = P.get((x, y - 1))
+        if above is None or above in PROTECT or col in PROTECT: continue
+        if fam(above) != fam(col) and fam(above) not in ("w",) and RAMPS.get(fam(col)):
+            shade[(x, y)] = darker(col)
+    P.update(shade)
+    # 3) contorno colorido: lado iluminado (cima/esquerda) com a sombra profunda do material, lado da sombra em preto
+    out = {}
+    for (x, y), col in list(P.items()):
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            q = (x + dx, y + dy)
+            if q in P or not (0 <= q[0] < c.w and 0 <= q[1] < c.h): continue
+            out.setdefault(q, []).append(((-dx, -dy), col))
+    for q, lst in out.items():
+        dirs = {d for d, _ in lst}
+        col = lst[0][1]
+        lit = DEEP.get(fam(col), "ol")
+        if col == lit or col == "ol": lit = "ol"
+        if len(dirs) >= 2 and (0, 1) not in dirs and (-1, 0) not in dirs:
+            P[q] = lit                       # canto em degrau do lado iluminado: tom intermediário
+        elif dirs <= {(0, 1), (1, 0)}:
+            P[q] = lit                       # forma está abaixo/à direita: borda de cima/esquerda, iluminada
+        else:
+            P[q] = "ol"
 
 
 def ell(c, cx, cy, rx, ry, cols, bias=0.0, cut=None, cutmin=None, edge=True, xmin=None):
@@ -87,10 +157,10 @@ def strands(c, hair, x0, x1, y0, y1, step=6, lean=0.0):
 
 def shine(c, hair, cx, cy, rx, ry):
     for y in range(int(cy - ry), int(cy + ry)):
-        for x in range(int(cx - rx), int(cx)):
+        for x in range(int(cx - rx), int(cx + rx * 0.35)):
             dx, dy = (x + .5 - cx) / rx, (y + .5 - cy) / ry
             r = (dx * dx + dy * dy) ** .5
-            if 0.55 < r < 0.72 and dy < -0.1 and c.p.get((x, y)) in hair[1:]:
+            if 0.5 < r < 0.7 and dy < 0.05 and c.p.get((x, y)) in hair[1:] + (DEEP.get(fam(hair[-1])),):
                 c.px(x, y, hair[0])
 
 
@@ -192,10 +262,10 @@ def head_front(c, cfg, b, back):
                 ell(c, px_, 60 + b, 7, 14, hair); strands(c, hair, px_ - 5, px_ + 5, 48 + b, 74 + b, step=4)
                 ell(c, px_, 44 + b, 4, 4, ("r2", "r1", "r0"))
     rect(c, 58, 56 + b, 69, 63 + b, ("sk", "sk0", "sk0"))
-    ell(c, 64, 40 + b, 22, 21, SKIN)
+    ell(c, 64, 40 + b, 22, 21, SKIN, bias=-0.22)
     if back:
         if st == "long": rect(c, 36, 40 + b, 91, 82 + b, hair); strands(c, hair, 38, 90, 44 + b, 82 + b, step=5)
-        ell(c, 64, 36 + b, 25, 23, hair); strands(c, hair, 42, 88, 18 + b, 58 + b, step=5, lean=0.4)
+        ell(c, 64, 36 + b, 25, 23, hair, bias=-0.1); strands(c, hair, 42, 88, 18 + b, 58 + b, step=5, lean=0.4)
         shine(c, hair, 64, 34 + b, 25, 23)
         rect(c, 50, 54 + b, 78, 59 + b, hair, axis="y")
         if st == "ponytail":
@@ -211,7 +281,7 @@ def head_front(c, cfg, b, back):
         if ex == "beard":
             ell(c, 64, 62 + b, 16, 14, ("wh", "s3", "s2"), cutmin=52 + b); strands(c, ("wh", "s3", "s2"), 52, 76, 56 + b, 75 + b, step=4)
             flat(c, 58, 55 + b, 69, 56 + b, "s3"); flat(c, 61, 58 + b, 66, 58 + b, "s2")
-        ell(c, 64, 32 + b, 25, 18, hair, cut=37 + b); strands(c, hair, 42, 86, 15 + b, 36 + b, step=6, lean=0.5)
+        ell(c, 64, 32 + b, 25, 18, hair, bias=-0.1, cut=37 + b); strands(c, hair, 42, 86, 15 + b, 36 + b, step=6, lean=0.5)
         shine(c, hair, 64, 32 + b, 25, 18)
         bangs(c, hair, b, 41, 87, short=(49, 79), side=20 if st not in ("long",) else 24)
         if st == "long":
@@ -242,7 +312,7 @@ def front(cfg, step, back=False):
     torso_front(c, cfg, b, back)
     arms_front(c, cfg, b, step)
     head_front(c, cfg, b, back)
-    c.outline(); c.shadow_ellipse(64, 118, 25, 5)
+    finish(c); c.shadow_ellipse(64, 118, 25, 5)
     return c
 
 
@@ -287,7 +357,7 @@ def head_side(c, cfg, b, hx=0, eyes="open"):
     if st == "pigtails":
         ell(c, 44 + hx, 60 + b, 7, 14, hair); strands(c, hair, 39 + hx, 49 + hx, 48 + b, 74 + b, step=4); ell(c, 46 + hx, 44 + b, 4, 4, ("r2", "r1", "r0"))
     rect(c, 62 + hx, 56 + b, 71 + hx, 63 + b, ("sk", "sk0", "sk0"))
-    ell(c, 66 + hx, 40 + b, 21, 21, SKIN)
+    ell(c, 66 + hx, 40 + b, 21, 21, SKIN, bias=-0.22)
     ell(c, 86 + hx, 47 + b, 3, 3, SKIN)
     if ex == "beard":
         ell(c, 72 + hx, 60 + b, 14, 12, ("wh", "s3", "s2"), cutmin=52 + b); strands(c, ("wh", "s3", "s2"), 62 + hx, 84 + hx, 55 + b, 72 + b, step=4)
@@ -296,7 +366,7 @@ def head_side(c, cfg, b, hx=0, eyes="open"):
     else: eye(c, 76 + hx, 41 + b, cfg["eye"], w=5, closed=True)
     if ex != "beard": flat(c, 79 + hx, 57 + b, 82 + hx, 57 + b, "sk0")
     blush(c, 77 + hx, 54 + b, 4)
-    ell(c, 62 + hx, 32 + b, 25, 18, hair, cut=37 + b); strands(c, hair, 40 + hx, 84 + hx, 15 + b, 36 + b, step=6, lean=0.5)
+    ell(c, 62 + hx, 32 + b, 25, 18, hair, bias=-0.1, cut=37 + b); strands(c, hair, 40 + hx, 84 + hx, 15 + b, 36 + b, step=6, lean=0.5)
     ell(c, 52 + hx, 44 + b, 13, 15, hair); strands(c, hair, 42 + hx, 62 + hx, 34 + b, 58 + b, step=4)
     shine(c, hair, 62 + hx, 32 + b, 25, 18)
     ell(c, 61 + hx, 46 + b, 3.2, 4.6, SKIN); c.px(61 + hx, 46 + b, "sk0")
@@ -328,7 +398,7 @@ def side(cfg, step):
     torso_side(c, cfg, b)
     head_side(c, cfg, b)
     arm_side(c, cfg, b, {0: 62, 1: 56, 2: 68}[step])
-    c.outline(); c.shadow_ellipse(64, 118, 25, 5)
+    finish(c); c.shadow_ellipse(64, 118, 25, 5)
     return c
 
 
@@ -345,7 +415,7 @@ def pose_attack(cfg):
         x, y = 100 + i, 66 - i
         c.px(x, y - 1, "wh"); c.px(x, y, "s3"); c.px(x, y + 1, "s3"); c.px(x, y + 2, "s2"); c.px(x + 1, y + 2, "s1")
     star(c, 124, 40, "w3", 3)
-    c.outline(); c.shadow_ellipse(64, 118, 27, 5)
+    finish(c); c.shadow_ellipse(64, 118, 27, 5)
     return c
 
 
@@ -358,7 +428,7 @@ def pose_cast(cfg):
     rect(c, 74, 62, 85, 69, t); rect(c, 88, 48, 95, 63, t); ell(c, 92, 42, 5, 6, SKIN)
     for x, y, col, r in [(98, 26, "wh", 3), (90, 22, "w3", 2), (106, 34, "w3", 2), (108, 20, "au", 2), (56, 22, "au", 2), (96, 12, "w3", 3), (114, 30, "wh", 1)]:
         star(c, x, y, col, r)
-    c.outline(); c.shadow_ellipse(64, 118, 25, 5)
+    finish(c); c.shadow_ellipse(64, 118, 25, 5)
     return c
 
 
@@ -370,7 +440,7 @@ def pose_hurt(cfg):
     head_side(c, cfg, 2, hx=-8, eyes="hurt")
     rect(c, 70, 66, 77, 76, t); rect(c, 76, 74, 83, 80, SKIN)
     for x, y in [(92, 24), (96, 32), (90, 36)]: star(c, x, y, "wh", 2)
-    c.outline(); c.shadow_ellipse(64, 118, 25, 5)
+    finish(c); c.shadow_ellipse(64, 118, 25, 5)
     return c
 
 
@@ -385,7 +455,7 @@ def pose_ko(cfg):
     for y in (96, 106): flat(c, 92, y, 96, y, "ol")
     c.px(88, 102, "sk0")
     if cfg.get("extra") == "hat": ell(c, 118, 96, 7, 20, ("au2", "au", "au0"))
-    c.outline(); c.shadow_ellipse(66, 119, 48, 5)
+    finish(c); c.shadow_ellipse(66, 119, 48, 5)
     return c
 
 
@@ -477,7 +547,7 @@ def slime128(kind, frame):
     else:
         flat(c, ex + 12, my + 1, ex + 17, my + 1, "ol"); c.px(ex + 11, my, "ol"); c.px(ex + 18, my, "ol")
         blush(c, ex - 4, my - 3, 4); blush(c, ex + 28, my - 3, 4)
-    c.outline(); c.shadow_ellipse(64 + lean // 2, 120, rx + 6, 5)
+    finish(c); c.shadow_ellipse(64 + lean // 2, 120, rx + 6, 5)
     return c
 
 
