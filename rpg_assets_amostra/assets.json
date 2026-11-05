@@ -1,0 +1,265 @@
+{
+  "tile_size": 32,
+  "tileset_terreno.png": {
+    "colunas": 8,
+    "linhas": 7,
+    "linha0": [
+      "grama_a",
+      "grama_b",
+      "grama_c",
+      "terra",
+      "pedra",
+      "agua_f0",
+      "agua_f1",
+      "grama_flores"
+    ],
+    "linhas1-2": "transições grama->terra, índice = máscara de cantos (TL=1, TR=2, BL=4, BR=8)",
+    "linhas3-4": "transições grama->água frame 0 (mesma máscara)",
+    "linhas5-6": "transições grama->água frame 1 (mesma máscara)",
+    "tile_id_transicao": "id = linha_inicial*8 + mascara"
+  },
+  "personagem_heroi.png": {
+    "frame": [
+      32,
+      32
+    ],
+    "colunas": [
+      "passo_a",
+      "parado",
+      "passo_b"
+    ],
+    "linhas": [
+      "baixo",
+      "esquerda",
+      "direita",
+      "cima"
+    ],
+    "animacao_andar": [
+      0,
+      1,
+      2,
+      1
+    ],
+    "fps_sugerido": 8
+  },
+  "props.png": {
+    "arvore": [
+      0,
+      0,
+      64,
+      64
+    ],
+    "pedra": [
+      64,
+      0,
+      32,
+      32
+    ],
+    "arbusto": [
+      96,
+      0,
+      32,
+      32
+    ],
+    "bau_fechado": [
+      128,
+      0,
+      32,
+      32
+    ],
+    "bau_aberto": [
+      160,
+      0,
+      32,
+      32
+    ],
+    "placa": [
+      64,
+      32,
+      32,
+      32
+    ],
+    "flores": [
+      96,
+      32,
+      32,
+      32
+    ]
+  },
+  "vila.png": {
+    "pousada": [
+      0,
+      0,
+      96,
+      96
+    ],
+    "loja": [
+      96,
+      0,
+      96,
+      96
+    ],
+    "casa": [
+      192,
+      0,
+      96,
+      96
+    ],
+    "poco": [
+      288,
+      0,
+      32,
+      32
+    ],
+    "cerca": [
+      320,
+      0,
+      32,
+      32
+    ],
+    "barril": [
+      352,
+      0,
+      32,
+      32
+    ],
+    "porta": "tile do meio da linha de baixo"
+  },
+  "interior_tiles.png": {
+    "linha0": [
+      "piso_a",
+      "piso_b",
+      "parede",
+      "parede_janela",
+      "borda",
+      "porta_saida"
+    ],
+    "linhas1-2": "tapete em 9 partes: SE, S, SD, E, C, D, IE, I, ID"
+  },
+  "moveis.png": {
+    "cama": [
+      0,
+      0,
+      32,
+      64
+    ],
+    "estante": [
+      32,
+      0,
+      32,
+      64
+    ],
+    "prateleira_pocoes": [
+      64,
+      0,
+      32,
+      64
+    ],
+    "lareira": [
+      96,
+      0,
+      64,
+      64
+    ],
+    "mesa": [
+      160,
+      0,
+      32,
+      32
+    ],
+    "cadeira": [
+      160,
+      32,
+      32,
+      32
+    ],
+    "balcao": [
+      192,
+      0,
+      32,
+      32
+    ],
+    "planta": [
+      192,
+      32,
+      32,
+      32
+    ],
+    "vaso": [
+      224,
+      0,
+      32,
+      32
+    ],
+    "gato": [
+      224,
+      32,
+      32,
+      32
+    ]
+  },
+  "slimes.png": {
+    "frame": [
+      32,
+      32
+    ],
+    "colunas": [
+      "normal",
+      "achatado"
+    ],
+    "linhas": [
+      "verde",
+      "azul",
+      "rubro"
+    ]
+  },
+  "paleta": {
+    "ol": "#221c28",
+    "g0": "#2c5c38",
+    "g1": "#48863e",
+    "g2": "#6cac48",
+    "g3": "#a0ce62",
+    "d0": "#66422e",
+    "d1": "#92643e",
+    "d2": "#b88a58",
+    "d3": "#d8b67c",
+    "w0": "#223c76",
+    "w1": "#2e5ea6",
+    "w2": "#488cd2",
+    "w3": "#bae4f4",
+    "s0": "#464a5c",
+    "s1": "#6e7484",
+    "s2": "#9ca2ae",
+    "s3": "#ced2d6",
+    "sk": "#f2c69c",
+    "sk0": "#cc9672",
+    "sk2": "#fcdebc",
+    "t0": "#205860",
+    "t1": "#348486",
+    "t2": "#60b2aa",
+    "k0": "#282232",
+    "k1": "#3e3448",
+    "k2": "#60546c",
+    "au2": "#fadc84",
+    "v0": "#583a70",
+    "v1": "#845a9c",
+    "v2": "#b084c4",
+    "m0": "#b05078",
+    "m1": "#e284a4",
+    "m2": "#f4bace",
+    "o0": "#963c20",
+    "o1": "#c86030",
+    "o2": "#e88c50",
+    "h0": "#5c3222",
+    "h1": "#864c2c",
+    "h2": "#b06c3c",
+    "r0": "#8c2834",
+    "r1": "#c44244",
+    "r2": "#ea7662",
+    "p0": "#303862",
+    "p1": "#4e5a92",
+    "au": "#ecbc46",
+    "au0": "#b07a2a",
+    "wh": "#f4f0e6"
+  }
+}
